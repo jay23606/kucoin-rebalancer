@@ -19,7 +19,6 @@ namespace kucoin_rebalancer
                 new PairInfo("ETH3L-USDT", .25m),
                 new PairInfo("FTM3S-USDT", .25m),
                 new PairInfo("LINK3S-USDT", .25m),
-
                 };
 
             //$100 initial investment, 0.5% threshold for rebalancing 
