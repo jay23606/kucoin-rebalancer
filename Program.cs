@@ -31,7 +31,7 @@ namespace kucoin_rebalancer
             return key;
         }
     }
-
+    
 
     class PairInfo
     {
@@ -44,6 +44,7 @@ namespace kucoin_rebalancer
         }
     }
 
+    
     class Rebalancer
     {
         public List<PairInfo> Pairs;
@@ -61,15 +62,12 @@ namespace kucoin_rebalancer
             if (!Paper) kc = new KucoinClient(new KucoinClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass) });
         }
         
-
-        //untested
         public async Task Buy(PairInfo p, decimal Quantity)
         {
             var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Buy, type: KucoinNewOrderType.Market, quantity: Quantity, clientOrderId: Guid.NewGuid().ToString());
             if (!res.Success) Console.WriteLine($"Buy error: {res.Error}");
         }
 
-        //untested
         public async Task Sell(PairInfo p, decimal Quantity)
         {
             var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Sell, type: KucoinNewOrderType.Market, quantity: Quantity, clientOrderId: Guid.NewGuid().ToString());
