@@ -87,7 +87,7 @@ namespace kucoin_rebalancer
 
         public async Task Stop()
         {
-            if(kc==null && !Paper) kc = new KucoinClient(new KucoinClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass) });
+            if (kc == null && !Paper) kc = new KucoinClient(new KucoinClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass) });
             foreach (PairInfo p in Pairs)
             {
                 if (!Paper) await Sell(p, p.Quantity); //.GetAwaiter().GetResult();
