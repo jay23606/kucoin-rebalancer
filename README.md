@@ -23,3 +23,7 @@ List<PairInfo> pairs = new List<PairInfo>() {
 Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.005m, Paper: false); 
 await r.Start();
 ```
+
+More info about coin rebalancing:
+
+https://blog.shrimpy.io/blog/a-comparison-of-rebalancing-strategies-for-cryptocurrency-portfolios
