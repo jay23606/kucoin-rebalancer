@@ -9,7 +9,7 @@ Include Kucoin.NET from Project->Nuget
 
 Update Kucoin API key, secret, pass in Rebalancer class
 
-Define pairs, percentage amounts, and threshold:
+Define pairs, percentage amounts, usdt amount and threshold for rebalance:
 
 ```csharp
 List<PairInfo> pairs = new List<PairInfo>() {
