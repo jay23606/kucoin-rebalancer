@@ -54,6 +54,7 @@ namespace kucoin_rebalancer
         const string key = "xxx", secret = "xxx", pass = "xxx";
         KucoinSocketClient sc;
         KucoinClient kc;
+        
         public Rebalancer(List<PairInfo> Pairs, decimal Amount, decimal Threshold, bool Paper=true)
         {
             this.Pairs = Pairs;
@@ -63,15 +64,12 @@ namespace kucoin_rebalancer
             if (!Paper) kc = new KucoinClient(new KucoinClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass) });
         }
         
-
-        //untested
         public async Task Buy(PairInfo p, decimal Quantity)
         {
             var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Buy, type: KucoinNewOrderType.Market, quantity: Quantity, clientOrderId: Guid.NewGuid().ToString());
             if (!res.Success) Console.WriteLine($"Buy error: {res.Error}");
         }
 
-        //untested
         public async Task Sell(PairInfo p, decimal Quantity)
         {
             var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Sell, type: KucoinNewOrderType.Market, quantity: Quantity, clientOrderId: Guid.NewGuid().ToString());
@@ -104,7 +102,6 @@ namespace kucoin_rebalancer
 
                     if(Pair.Quantity == 0)
                     {
-                        //execute buy market order here and update Quantity with real figure
                         Pair.Quantity = decimal.Round(Pair.Percentage * (Amount / Pair.Ask), 8); //needs to be rounded?
                         if (!Paper) Buy(Pair, Pair.Quantity).GetAwaiter().GetResult();
                         Console.WriteLine($"Bought {Pair.Quantity} of {Pair.Pair} ({100 * Pair.ActualPercentage}%, ${Pair.Quantity * Pair.Ask})");
@@ -150,7 +147,7 @@ namespace kucoin_rebalancer
                                         if (pi2.Pair != pi.Pair)
                                         {
                                             decimal BuyPercentage = pi2.Percentage - pi2.ActualPercentage;
-                                            if (BuyPercentage > 0) //only buy those pairs that dropped below Pecentage
+                                            if (BuyPercentage > 0) //only buy those pairs that dropped below Pecentage, let others run
                                             {
                                                 if ((BuyPercentage + SmallBuyPecentage) <= MinThreshold)
                                                 {
