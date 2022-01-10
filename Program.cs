@@ -90,7 +90,7 @@ namespace kucoin_rebalancer
             if (kc == null && !Paper) kc = new KucoinClient(new KucoinClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass) });
             foreach (PairInfo p in Pairs)
             {
-                if (!Paper) await Sell(p, p.Quantity); //.GetAwaiter().GetResult();
+                if (!Paper) await Sell(p, p.Quantity); 
                 Console.WriteLine($"Sold {p.Quantity} of {p.Pair} ({100 * p.ActualPercentage}%, ${p.Quantity * p.Ask})");
             }
         }
