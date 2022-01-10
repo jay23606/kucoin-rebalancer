@@ -7,7 +7,7 @@ Create new C# console application
 
 Include Kucoin.NET from Project->Nuget
 
-Update API key, secret, pass in Rebalancer class
+Update Kucoin API key, secret, pass in Rebalancer class
 
 Define pairs, percentage amounts, and threshold:
 
