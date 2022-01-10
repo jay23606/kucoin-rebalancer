@@ -22,7 +22,7 @@ namespace kucoin_rebalancer
 
                 };
 
-            //$100 initial investment, 0.3% threshold for rebalancing 
+            //$100 initial investment, 0.5% threshold for rebalancing 
             //A larger threshold is probably better but this is just a test
             Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.005m, Paper: false); 
             await r.Start();
