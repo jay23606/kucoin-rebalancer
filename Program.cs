@@ -132,7 +132,7 @@ namespace kucoin_rebalancer
                 Console.WriteLine($"Quantity {d} to small for {pair}--using BaseMinSize of {min}");
                 return min;
             }
-            else return decimal.Round(d, 4);
+            else return decimal.Round(d, count);
         }
 
         public async Task Start()
