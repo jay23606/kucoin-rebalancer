@@ -20,7 +20,7 @@ List<PairInfo> pairs = new List<PairInfo>() {
     };
 
 //$5 initial investment, 0.2% threshold for rebalancing 
-Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.002m, Paper: false); 
+Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.002m); 
 await r.Start();
 ```
 
