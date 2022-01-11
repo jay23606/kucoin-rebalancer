@@ -23,7 +23,7 @@ List<PairInfo> pairs = new List<PairInfo>() {
 Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.005m, Paper: false); 
 await r.Start();
 
-![alt text](https://github.com/jay23606/kucoin-rebalancer/blob/main/ss.png?raw=true)
+![Screenshot](ss.png)
 ```
 
 More info about coin rebalancing:
