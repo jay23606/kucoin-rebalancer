@@ -9,6 +9,8 @@ Include Kucoin.NET from Project->Nuget
 
 Update Kucoin API key, secret, pass in Rebalancer class
 
+Set Paper=false in Rebalancer constructor to try it with real money
+
 Define pairs, percentage amounts, usdt amount and threshold for rebalance:
 
 ```csharp
