@@ -77,6 +77,7 @@ namespace kucoin_rebalancer
         KucoinClient kc;
         public Rebalancer(List<PairInfo> Pairs, decimal Amount, decimal Threshold, bool Paper=true)
         {
+            this.Paper = Paper;
             this.Pairs = Pairs;
             this.Amount = Amount;
             this.Threshold = Threshold;
