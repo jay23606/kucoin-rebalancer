@@ -9,14 +9,14 @@ namespace kucoin_rebalancer
         static async Task MainAsync()
         {
             List<PairInfo> pairs = new List<PairInfo>() {
-                new PairInfo("BTC3L-USDT", .25m),
-                new PairInfo("ETH3L-USDT", .25m),
-                new PairInfo("FTM3S-USDT", .25m),
-                new PairInfo("LINK3S-USDT", .25m),
+                new PairInfo("SHIB-USDT", .25m),
+                new PairInfo("ELON-USDT", .25m),
+                new PairInfo("SOS-USDT", .25m),
+                new PairInfo("SRK-USDT", .25m),
                 };
 
             //$5 initial investment, 0.2% threshold for rebalancing 
-            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.002m, Paper: false);
+            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.004m, Paper: false);
             await r.Start();
 
             //Console.ReadKey blocks main thread
@@ -49,6 +49,7 @@ namespace kucoin_rebalancer
                 {
                     SellVolume -= front.Volume;
                     PriceVolume.Dequeue();
+                    if (SellVolume == 0) return;
                     front = PriceVolume.Peek();
                 } while (SellVolume >= front.Volume);
                 if(SellVolume>0) front.Volume -= SellVolume;
