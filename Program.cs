@@ -19,19 +19,12 @@ namespace kucoin_rebalancer
             Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.002m, Paper: true);
             await r.Start();
 
-            while (await WaitConsoleKey() != ConsoleKey.Escape) ;
-            
+            //Console.ReadKey blocks main thread
+            await Task.Factory.StartNew(() => { while (Console.ReadKey().Key != ConsoleKey.Escape) ; });
+
             await r.Stop();
         }
-
-        static async Task<ConsoleKey> WaitConsoleKey()
-        {
-            ConsoleKey key = default;
-            await Task.Run(() => key = Console.ReadKey(true).Key);
-            return key;
-        }
     }
-
 
     class PairInfo
     {
