@@ -16,7 +16,7 @@ namespace kucoin_rebalancer
                 };
 
             //$5 initial investment, 0.2% threshold for rebalancing 
-            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.002m, Paper: true);
+            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.002m, Paper: false);
             await r.Start();
 
             //Console.ReadKey blocks main thread
@@ -75,7 +75,10 @@ namespace kucoin_rebalancer
         const string key = "xxx", secret = "xxx", pass = "xxx";
         KucoinSocketClient sc;
         KucoinClient kc;
-        public Rebalancer(List<PairInfo> Pairs, decimal Amount, decimal Threshold, bool Paper=true)
+        Dictionary<string, decimal> BaseMinSize = new Dictionary<string, decimal>();
+        Dictionary<string, decimal> BaseIncrement = new Dictionary<string, decimal>();
+
+        public Rebalancer(List<PairInfo> Pairs, decimal Amount, decimal Threshold, bool Paper = true)
         {
             this.Paper = Paper;
             this.Pairs = Pairs;
@@ -108,8 +111,47 @@ namespace kucoin_rebalancer
             }
         }
 
+        //alternate implementation 
+        public async Task Start2()
+        {
+            foreach (PairInfo Pair in Pairs)
+            {
+                var res = await sc.Spot.SubscribeToTickerUpdatesAsync(Pair.Pair, data =>
+                {
+                    Pair.Ask = (decimal)data.Data.BestAsk;
+                });
+            }
+        }
+
+        public decimal Round(decimal d, string pair) 
+        {
+            int count = BitConverter.GetBytes(decimal.GetBits(BaseIncrement[pair])[3])[2];
+            decimal min = BaseMinSize[pair];
+            if (d < min)
+            {
+                Console.WriteLine($"Quantity {d} to small for {pair}--using BaseMinSize of {min}");
+                return min;
+            }
+            else return decimal.Round(d, 4);
+        }
+
         public async Task Start()
         {
+            if (!Paper)
+            {
+                HashSet<string> pairs = new HashSet<string>();
+                foreach (PairInfo p in Pairs) pairs.Add(p.Pair);
+                var sa = await kc.Spot.GetSymbolsAsync(); //"USDS"
+                foreach (var pair in sa.Data)
+                {
+                    if (pairs.Contains(pair.Name))
+                    {
+                        BaseMinSize.Add(pair.Name, pair.BaseMinSize);
+                        BaseIncrement.Add(pair.Name, pair.BaseIncrement);
+                    }
+                }
+            }
+
             foreach (PairInfo Pair in Pairs)
             {
                 var res = await sc.Spot.SubscribeToTickerUpdatesAsync(Pair.Pair, data =>
@@ -118,7 +160,8 @@ namespace kucoin_rebalancer
 
                     if(Pair.Quantity == 0)
                     {
-                        Pair.Quantity = decimal.Round(Pair.Percentage * (Amount / Pair.Ask), 8);
+                        //int count = BitConverter.GetBytes(decimal.GetBits(BaseIncrement[Pair.Pair])[3])[2];
+                        Pair.Quantity = Round(Pair.Percentage * (Amount / Pair.Ask), Pair.Pair);
                         Pair.PriceVolume.Enqueue(new PriceVolume(Pair.Ask * (1 + MinThreshold), Pair.Quantity)); //include 0.1% fee
                         if (!Paper) Buy(Pair, Pair.Quantity).GetAwaiter().GetResult();
                         Console.WriteLine($"Bought {Pair.Quantity} of {Pair.Pair} ({100 * Pair.ActualPercentage}%, ${Pair.Quantity * Pair.Ask})");
@@ -149,7 +192,7 @@ namespace kucoin_rebalancer
 
                                     //convert amount over threshold as quantity to sell
                                     decimal SellPercentage = pi.ActualPercentage - pi.Percentage;
-                                    decimal SellQuantity = decimal.Round(SellPercentage * pi.Quantity, 8); //needs to be rounded?
+                                    decimal SellQuantity = Round(SellPercentage * pi.Quantity, pi.Pair); //needs to be rounded?
 
                                     //execute sell market order 
                                     pi.Quantity = pi.Quantity - SellQuantity;
@@ -177,7 +220,7 @@ namespace kucoin_rebalancer
                                                 }
                                                 else
                                                 {
-                                                    decimal BuyQuantity = decimal.Round((BuyPercentage + SmallBuyPecentage) * pi2.Quantity, 8); //needs to be rounded?
+                                                    decimal BuyQuantity = Round((BuyPercentage + SmallBuyPecentage) * pi2.Quantity, pi2.Pair); //needs to be rounded?
 
                                                     //execute buy market order  
                                                     pi2.Quantity = pi2.Quantity + BuyQuantity;
@@ -202,19 +245,19 @@ namespace kucoin_rebalancer
                                         decimal SumVol = 0, Avg = 0;
                                         foreach (PriceVolume pv in pi2.PriceVolume) SumVol += pv.Volume;
                                         foreach (PriceVolume pv in pi2.PriceVolume) Avg += (pv.Price * pv.Volume) / SumVol;
-                                        
-                                        //I think it's right
+
                                         decimal ProfitLoss = 0;
                                         if (Avg > 0) ProfitLoss = ((pi2.Ask / Avg) - 1);
+                           
                                         pi2.ProfitPercent = 100 * ProfitLoss;
+
                                         //I think this may be wrong
                                         //pi2.ProfitAmount = (SumVol * pi2.Ask) - (SumVol * Avg);
-                                        //lets try this
                                         pi2.ProfitAmount = ProfitLoss * (pi2.Quantity * pi2.Ask);
-                                        
-                                        
+
                                         SumProfitAmount += pi2.ProfitAmount;
-                                        
+
+                                        //I think it's right
                                         Console.WriteLine($"{pi2.Pair}: {decimal.Round(100 * pi2.ActualPercentage, 4)}% FIFO PnL: {decimal.Round(pi2.ProfitPercent, 4)}%, ${decimal.Round(pi2.ProfitAmount, 4)}");
                                         SumPercent += 100 * pi2.ActualPercentage;
                                         
