@@ -13,6 +13,8 @@ Set Paper=false in Rebalancer constructor to try it with real money
 
 Define pairs, percentage amounts, usdt amount and threshold for rebalance:
 
+Press Esc to exit and sell to usdt
+
 ```csharp
 List<PairInfo> pairs = new List<PairInfo>() {
     new PairInfo("BTC3L-USDT", .25m),
