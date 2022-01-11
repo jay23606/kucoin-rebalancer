@@ -22,9 +22,9 @@ List<PairInfo> pairs = new List<PairInfo>() {
 //$5 initial investment, 0.5% threshold for rebalancing 
 Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.005m, Paper: false); 
 await r.Start();
+```
 
 ![Screenshot](ss.png)
-```
 
 More info about coin rebalancing:
 
