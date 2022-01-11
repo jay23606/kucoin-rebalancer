@@ -204,11 +204,12 @@ namespace kucoin_rebalancer
 
                                         decimal ProfitLoss = 0;
                                         if (Avg > 0) ProfitLoss = 100 * ((pi2.Ask / Avg) - 1);
-
+                                        
+                                        //I think it's right
                                         pi2.ProfitPercent = ProfitLoss;
                                         pi2.ProfitAmount = (SumVol * pi2.Ask) - (SumVol * Avg);
                                         SumProfitAmount += pi2.ProfitAmount;
-                                        //I think it's right
+                                        
                                         Console.WriteLine($"{pi2.Pair}: {decimal.Round(100 * pi2.ActualPercentage, 4)}% FIFO PnL: {decimal.Round(pi2.ProfitPercent, 4)}%, ${decimal.Round(pi2.ProfitAmount, 4)}");
                                         SumPercent += 100 * pi2.ActualPercentage;
                                         
