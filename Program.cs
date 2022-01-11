@@ -130,7 +130,7 @@ namespace kucoin_rebalancer
             decimal min = BaseMinSize[pair];
             if (d < min)
             {
-                Console.WriteLine($"Quantity {d} to small for {pair}--using BaseMinSize of {min}");
+                Console.WriteLine($"Quantity {d} too small for {pair}--using BaseMinSize of {min}");
                 return min;
             }
             else return decimal.Round(d, count);
