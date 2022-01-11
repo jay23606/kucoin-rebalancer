@@ -19,8 +19,8 @@ List<PairInfo> pairs = new List<PairInfo>() {
     new PairInfo("LINK3S-USDT", .25m),
     };
 
-//$5 initial investment, 0.5% threshold for rebalancing 
-Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.005m, Paper: false); 
+//$5 initial investment, 0.2% threshold for rebalancing 
+Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.002m, Paper: false); 
 await r.Start();
 ```
 
