@@ -15,8 +15,8 @@ namespace kucoin_rebalancer
                 new PairInfo("LINK3S-USDT", .25m),
                 };
 
-            //$100 initial investment, 1% threshold for rebalancing 
-            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.01m, Paper: true);
+            //$5 initial investment, 0.3% threshold for rebalancing 
+            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.002m, Paper: true);
             await r.Start();
 
             while (await WaitConsoleKey() != ConsoleKey.Escape) ;
@@ -31,24 +31,53 @@ namespace kucoin_rebalancer
             return key;
         }
     }
-    
+
 
     class PairInfo
     {
         public string Pair;
-        public decimal Percentage, ActualPercentage, Quantity = 0, Ask = 0;
+        public decimal Percentage, ActualPercentage, Quantity = 0, Ask = 0, ProfitPercent = 0, ProfitAmount = 0;
+
+        public Queue<PriceVolume> PriceVolume;
         public PairInfo(string Pair, decimal Percentage)
         {
             this.Pair = Pair;
             this.Percentage = this.ActualPercentage = Percentage;
+            PriceVolume = new Queue<PriceVolume>();
+        }
+
+        //Must update FIFO queue after sells in order to be able to calculate PnL
+        public void UpdatePriceVolume(decimal SellVolume)
+        {
+            PriceVolume front = PriceVolume.Peek();
+            if (SellVolume >= front.Volume)
+            {
+                do
+                {
+                    SellVolume -= front.Volume;
+                    PriceVolume.Dequeue();
+                    front = PriceVolume.Peek();
+                } while (SellVolume >= front.Volume);
+                if(SellVolume>0) front.Volume -= SellVolume;
+            }
+            else front.Volume -= SellVolume;
         }
     }
 
-    
+    class PriceVolume
+    {
+        public decimal Price, Volume;
+        public PriceVolume(decimal Price, decimal Volume)
+        {
+            this.Price = Price;
+            this.Volume = Volume;
+        }
+    }
+
     class Rebalancer
     {
         public List<PairInfo> Pairs;
-        decimal Amount, Threshold, MinThreshold = 0.001m; //kucoin fees are 0.1% 
+        decimal Amount, Threshold, MinThreshold = 0.001m, Profits = 0; //kucoin fees are 0.1% 
         bool HasQuantities = false, Paper = true;
         const string key = "xxx", secret = "xxx", pass = "xxx";
         KucoinSocketClient sc;
@@ -62,6 +91,7 @@ namespace kucoin_rebalancer
             if (!Paper) kc = new KucoinClient(new KucoinClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass) });
         }
         
+
         public async Task Buy(PairInfo p, decimal Quantity)
         {
             var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Buy, type: KucoinNewOrderType.Market, quantity: Quantity, clientOrderId: Guid.NewGuid().ToString());
@@ -94,7 +124,8 @@ namespace kucoin_rebalancer
 
                     if(Pair.Quantity == 0)
                     {
-                        Pair.Quantity = decimal.Round(Pair.Percentage * (Amount / Pair.Ask), 8); 
+                        Pair.Quantity = decimal.Round(Pair.Percentage * (Amount / Pair.Ask), 8);
+                        Pair.PriceVolume.Enqueue(new PriceVolume(Pair.Ask * (1 + MinThreshold), Pair.Quantity)); //include 0.1% fee
                         if (!Paper) Buy(Pair, Pair.Quantity).GetAwaiter().GetResult();
                         Console.WriteLine($"Bought {Pair.Quantity} of {Pair.Pair} ({100 * Pair.ActualPercentage}%, ${Pair.Quantity * Pair.Ask})");
                     }
@@ -126,10 +157,13 @@ namespace kucoin_rebalancer
                                     decimal SellPercentage = pi.ActualPercentage - pi.Percentage;
                                     decimal SellQuantity = decimal.Round(SellPercentage * pi.Quantity, 8); //needs to be rounded?
 
-                                    //execute sell market order here and update Quantity with real figure
+                                    //execute sell market order 
                                     pi.Quantity = pi.Quantity - SellQuantity;
+                                    //pi.PriceVolume.Dequeue();
+                                    pi.UpdatePriceVolume(SellQuantity);
                                     if (!Paper) Sell(pi, SellQuantity).GetAwaiter().GetResult(); //not sure why await isn't possible
                                     Console.WriteLine($"Sold {SellQuantity} of {pi.Pair} ({100 * pi.ActualPercentage}%, ${SellQuantity * pi.Ask})");
+                                    Profits += SellQuantity * pi.Ask * (1 - MinThreshold); //include 0.1% fee
 
                                     //buy the other pair(s) 
                                     decimal SmallBuyPecentage = 0, BoughtPercentage = 0;
@@ -151,8 +185,9 @@ namespace kucoin_rebalancer
                                                 {
                                                     decimal BuyQuantity = decimal.Round((BuyPercentage + SmallBuyPecentage) * pi2.Quantity, 8); //needs to be rounded?
 
-                                                    //execute buy market order here 
+                                                    //execute buy market order  
                                                     pi2.Quantity = pi2.Quantity + BuyQuantity;
+                                                    pi2.PriceVolume.Enqueue(new PriceVolume(pi2.Ask * (1 + MinThreshold), pi2.Quantity)); //include 0.1% fee
                                                     if (!Paper) Buy(pi2, pi2.Quantity).GetAwaiter().GetResult();
                                                     Console.WriteLine($"Bought {BuyQuantity} of {pi2.Pair} ({100 * pi2.ActualPercentage}%, ${BuyQuantity * pi2.Ask})");
                                                     
@@ -164,17 +199,29 @@ namespace kucoin_rebalancer
                                     }
 
                                     //there may be some disparity
-                                    Console.WriteLine($"SoldPercentage:BoughtPercentage -> {SellPercentage}:{BoughtPercentage}");
+                                    Console.WriteLine($"SoldPercentage:BoughtPercentage -> {decimal.Round(SellPercentage, 4)}:{decimal.Round(BoughtPercentage, 4)}");
 
                                     //check the actual percentages for the pairs
-                                    decimal SumPercent = 0, SumUSDT2 = 0;
+                                    decimal SumPercent = 0, SumUSDT2 = 0, SumProfitAmount = 0;
                                     foreach (PairInfo pi2 in Pairs)
                                     {
-                                        Console.WriteLine($"{pi2.Pair}: {100 * pi2.ActualPercentage}%");
+                                        decimal SumVol = 0, Avg = 0;
+                                        foreach (PriceVolume pv in pi2.PriceVolume) SumVol += pv.Volume;
+                                        foreach (PriceVolume pv in pi2.PriceVolume) Avg += (pv.Price * pv.Volume) / SumVol;
+
+                                        decimal ProfitLoss = 0;
+                                        if (Avg > 0) ProfitLoss = 100 * ((pi2.Ask / Avg) - 1);
+
+                                        pi2.ProfitPercent = ProfitLoss;
+                                        pi2.ProfitAmount = (SumVol * pi2.Ask) - (SumVol * Avg);
+                                        SumProfitAmount += pi2.ProfitAmount;
+                                        //I think it's right
+                                        Console.WriteLine($"{pi2.Pair}: {decimal.Round(100 * pi2.ActualPercentage, 4)}% FIFO PnL: {decimal.Round(pi2.ProfitPercent, 4)}%, ${decimal.Round(pi2.ProfitAmount, 4)}");
                                         SumPercent += 100 * pi2.ActualPercentage;
+                                        
                                         SumUSDT2 += pi2.Ask * pi2.Quantity;
                                     }
-                                    Console.WriteLine($"Totals: ${SumUSDT2} ({SumPercent}%)");
+                                    Console.WriteLine($"Totals: ${decimal.Round(SumUSDT2, 4)} ({decimal.Round(SumPercent, 4)}%), Sell Profits: ${decimal.Round(Profits, 4)}, Hodl PnL: ${decimal.Round(SumProfitAmount, 4)} @ {DateTime.Now}");
                                 }
                             }
 
