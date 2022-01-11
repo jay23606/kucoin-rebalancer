@@ -15,7 +15,7 @@ namespace kucoin_rebalancer
                 new PairInfo("LINK3S-USDT", .25m),
                 };
 
-            //$5 initial investment, 0.3% threshold for rebalancing 
+            //$5 initial investment, 0.2% threshold for rebalancing 
             Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.002m, Paper: true);
             await r.Start();
 
