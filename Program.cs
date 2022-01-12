@@ -109,7 +109,6 @@ namespace kucoin_rebalancer
                 var res = await sc.Spot.SubscribeToTickerUpdatesAsync(Pair.Pair, async data =>
                 {
                     Pair.Ask = (decimal)data.Data.BestAsk * (1 + MinThreshold); //fees make it a bit higher?
-                    UpdateActualPercentage(Pair);
                     if (Pair.Quantity == 0) await Buy(Pair, (Pair.Percentage * Amount) / Pair.Ask);
                     else
                     {
@@ -119,7 +118,11 @@ namespace kucoin_rebalancer
                             HasQuantities = true;
                             foreach (PairInfo pi in Pairs) if (pi.Quantity == 0) HasQuantities = false;
                         }
-                        else await Rebalance();
+                        else
+                        {
+                            UpdateActualPercentage(Pair);
+                            await Rebalance();
+                        }
                     }
                 });
                 if (!res.Success) Console.WriteLine(res.Error);
