@@ -20,7 +20,9 @@ namespace kucoin_rebalancer
             await r.Start();
 
             //Console.ReadKey blocks main thread
-            await Task.Factory.StartNew(() => { while (Console.ReadKey().Key != ConsoleKey.Escape) ; });
+            await Task.Factory.StartNew(() => {
+                while ((r.KeyPress = Console.ReadKey().Key) != ConsoleKey.Escape) ;
+            });
 
             await r.Stop();
         }
@@ -70,6 +72,7 @@ namespace kucoin_rebalancer
 
     class Rebalancer
     {
+        public ConsoleKey KeyPress;
         public List<PairInfo> Pairs;
         decimal Amount, Threshold, MinThreshold = 0.001m, Profits = 0; //kucoin fees are 0.1% 
         bool HasQuantities = false, Paper = true;
@@ -104,11 +107,14 @@ namespace kucoin_rebalancer
 
         public async Task Stop()
         {
+            Console.WriteLine("");
+
             if (kc == null && !Paper) kc = new KucoinClient(new KucoinClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass) });
             foreach (PairInfo p in Pairs)
             {
-                if (!Paper) await Sell(p, p.Quantity); //.GetAwaiter().GetResult();
-                Console.WriteLine($"Sold {p.Quantity} of {p.Pair} ({100 * p.ActualPercentage}%, ${p.Quantity * p.Ask})");
+                decimal q = Round(p.Quantity, p.Pair);
+                if (!Paper) await Sell(p, q); //.GetAwaiter().GetResult();
+                Console.WriteLine($"{((Pairs.First() == p) ? "S" : "")}Sold {q} of {p.Pair} ({100 * p.ActualPercentage}%, ${q * p.Ask})");
             }
         }
 
@@ -136,6 +142,25 @@ namespace kucoin_rebalancer
             else return decimal.Round(d, count);
         }
 
+        //maybe we want to add and remove funds depending on how the market is doing?
+        public async Task AddFunds(PairInfo Pair, decimal Percent=100)
+        {
+            decimal q = Round(.01m * Percent * Pair.Percentage * (Amount / Pair.Ask), Pair.Pair);
+            Pair.Quantity += q;
+            Pair.PriceVolume.Enqueue(new PriceVolume(Pair.Ask * (1 + MinThreshold), q)); //include 0.1% fee
+            if (!Paper) await Buy(Pair, q); //.GetAwaiter().GetResult();
+            Console.WriteLine($"Bought {q} of {Pair.Pair} ({100 * Pair.ActualPercentage}%, ${q * Pair.Ask})");
+        }
+
+        public async Task RemoveFunds(PairInfo Pair, decimal Percent = 100)
+        {
+            decimal q = Round(.01m * Percent * Pair.Percentage * (Amount / Pair.Ask), Pair.Pair);
+            Pair.Quantity -= q;
+            Pair.UpdatePriceVolume(q);
+            if (!Paper) await Sell(Pair, q); //.GetAwaiter().GetResult();
+            Console.WriteLine($"Sold {q} of {Pair.Pair} ({100 * Pair.ActualPercentage}%, ${q * Pair.Ask})");
+        }
+
         public async Task Start()
         {
 
@@ -160,11 +185,11 @@ namespace kucoin_rebalancer
 
                     if(Pair.Quantity == 0)
                     {
-                        //int count = BitConverter.GetBytes(decimal.GetBits(BaseIncrement[Pair.Pair])[3])[2];
-                        Pair.Quantity = Round(Pair.Percentage * (Amount / Pair.Ask), Pair.Pair);
-                        Pair.PriceVolume.Enqueue(new PriceVolume(Pair.Ask * (1 + MinThreshold), Pair.Quantity)); //include 0.1% fee
-                        if (!Paper) Buy(Pair, Pair.Quantity).GetAwaiter().GetResult();
-                        Console.WriteLine($"Bought {Pair.Quantity} of {Pair.Pair} ({100 * Pair.ActualPercentage}%, ${Pair.Quantity * Pair.Ask})");
+                        //Pair.Quantity = Round(Pair.Percentage * (Amount / Pair.Ask), Pair.Pair);
+                        //Pair.PriceVolume.Enqueue(new PriceVolume(Pair.Ask * (1 + MinThreshold), Pair.Quantity)); //include 0.1% fee
+                        //if (!Paper) Buy(Pair, Pair.Quantity).GetAwaiter().GetResult();
+                        //Console.WriteLine($"Bought {Pair.Quantity} of {Pair.Pair} ({100 * Pair.ActualPercentage}%, ${Pair.Quantity * Pair.Ask})");
+                        AddFunds(Pair).GetAwaiter().GetResult();
                     }
                     else
                     {
@@ -176,6 +201,19 @@ namespace kucoin_rebalancer
                         }
                         else
                         {
+                            if (KeyPress == ConsoleKey.OemPlus)
+                            {
+                                Console.WriteLine("Adding 10% to Rebalancer!");
+                                KeyPress = 0;
+                                foreach (PairInfo pi in Pairs) AddFunds(pi, 10).GetAwaiter().GetResult();
+                            }
+                            if (KeyPress == ConsoleKey.OemMinus)
+                            {
+                                Console.WriteLine("Removing 10% from Rebalancer!");
+                                KeyPress = 0;
+                                foreach (PairInfo pi in Pairs) RemoveFunds(pi, 10).GetAwaiter().GetResult();
+                            }
+
                             //we need to calculate new percentages and check if any are above Threshold
                             //if so, we need to sell that pair and buy other pair(s)
                             decimal SumUSDT = 0;
@@ -188,7 +226,7 @@ namespace kucoin_rebalancer
                                 //Console.WriteLine($"{pi.ActualPercentage} > {pi.Percentage + Threshold}");
                                 if (pi.ActualPercentage >= pi.Percentage + Threshold)
                                 {
-                                    Console.WriteLine($"{pi.Pair} crossed {100 * Threshold}% threshold!");
+                                    Console.WriteLine($"\n{pi.Pair} crossed {100 * Threshold}% threshold!");
 
                                     //convert amount over threshold as quantity to sell
                                     decimal SellPercentage = pi.ActualPercentage - pi.Percentage;
