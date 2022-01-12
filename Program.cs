@@ -68,7 +68,7 @@ namespace kucoin_rebalancer
                 if (!res.Success) Console.WriteLine($"Buy error: {res.Error}");
             }
             p.Quantity += q;
-            Console.WriteLine($"Bought {q} of {p.Pair} (${decimal.Round(q * p.Ask, 4)})");
+            Console.WriteLine($"Bought {q} of {p.Pair} (${decimal.Round(q * p.Ask, 4)}), holding ${decimal.Round(p.Quantity * p.Ask, 4)}");
         }
 
         public async Task Sell(PairInfo p, decimal Quantity)
@@ -80,7 +80,7 @@ namespace kucoin_rebalancer
                 if (!res.Success) Console.WriteLine($"Sell error: {res.Error}");
             }
             p.Quantity -= q;
-            Console.WriteLine($"Sold {q} of {p.Pair} (${decimal.Round(q * p.Ask, 4)})");
+            Console.WriteLine($"Sold {q} of {p.Pair} (${decimal.Round(q * p.Ask, 4)}), holding ${decimal.Round(p.Quantity * p.Ask, 4)}");
         }
 
         public decimal Round(decimal d, string pair)
