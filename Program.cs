@@ -15,7 +15,7 @@ namespace kucoin_rebalancer
                 new PairInfo("SRK-USDT", .25m),
                 };
 
-            //$5 initial investment, 0.2% threshold for rebalancing 
+            //$5 initial investment, 0.4% threshold for rebalancing 
             Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.004m, Paper: false);
             await r.Start();
 
