@@ -74,17 +74,19 @@ namespace kucoin_rebalancer
 
         public async Task BuyPercent(PairInfo Pair, decimal Percent)
         {
-            decimal q = Round(Percent * Pair.Percentage * (Amount / Pair.Ask), Pair.Pair);
-            Pair.Quantity += q;
+            //initial amount based on this.Amount otherwise it should use a percent of current holdings for the pair
+            decimal amt = (Pair.Quantity == 0) ? (Pair.Percentage * Amount) / Pair.Ask : Pair.Quantity;
+            decimal q = Round(Percent * amt, Pair.Pair);
             if (!Paper) await Buy(Pair, q);
+            Pair.Quantity += q;
             Console.WriteLine($"Bought {q} of {Pair.Pair} ({decimal.Round(100 * Pair.ActualPercentage, 4)}%, ${decimal.Round(q * Pair.Ask, 4)})");
         }
 
         public async Task SellPercent(PairInfo Pair, decimal Percent)
         {
-            decimal q = Round(Percent * Pair.Percentage * (Amount / Pair.Ask), Pair.Pair);
-            Pair.Quantity -= q;
+            decimal q = Round(Percent * Pair.Quantity, Pair.Pair);
             if (!Paper) await Sell(Pair, q);
+            Pair.Quantity -= q;
             Console.WriteLine($"Sold {q} of {Pair.Pair} ({100 * Pair.ActualPercentage}%, ${q * Pair.Ask})");
         }
 
