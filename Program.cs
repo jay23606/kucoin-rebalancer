@@ -11,12 +11,12 @@ namespace kucoin_rebalancer
             List<PairInfo> pairs = new List<PairInfo>() {
                 new PairInfo("NEAR3S-USDT", .25m),
                 //new PairInfo("ELON-USDT", .25m),
-                new PairInfo("DOGE3L-USDT", .25m),
-                new PairInfo("SRK-USDT", .5m),
+                new PairInfo("ELON-USDT", .375m),
+                new PairInfo("SRK-USDT", .375m),
                 };
 
             //$5 initial investment, 0.2% threshold for rebalancing 
-            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 10, Threshold: 0.005m, Paper: true);
+            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 1000, Threshold: 0.002m, Paper: true);
             await r.Start();
 
             //Console.ReadKey blocks main thread
