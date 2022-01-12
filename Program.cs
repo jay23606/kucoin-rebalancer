@@ -9,14 +9,14 @@ namespace kucoin_rebalancer
         static async Task MainAsync()
         {
             List<PairInfo> pairs = new List<PairInfo>() {
-                new PairInfo("SHIB-USDT", .25m),
-                new PairInfo("ELON-USDT", .25m),
-                new PairInfo("SOS-USDT", .25m),
-                new PairInfo("SRK-USDT", .25m),
+                new PairInfo("NEAR3S-USDT", .25m),
+                //new PairInfo("ELON-USDT", .25m),
+                new PairInfo("DOGE3L-USDT", .25m),
+                new PairInfo("SRK-USDT", .5m),
                 };
 
-            //$5 initial investment, 0.4% threshold for rebalancing 
-            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.004m, Paper: false);
+            //$5 initial investment, 0.2% threshold for rebalancing 
+            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 10, Threshold: 0.005m, Paper: true);
             await r.Start();
 
             //Console.ReadKey blocks main thread
@@ -86,7 +86,7 @@ namespace kucoin_rebalancer
             this.Amount = Amount;
             this.Threshold = Threshold;
             sc = new KucoinSocketClient(new KucoinSocketClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass), AutoReconnect = true, });
-            if (!Paper) kc = new KucoinClient(new KucoinClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass) });
+            kc = new KucoinClient(new KucoinClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass) });
         }
         
 
@@ -130,7 +130,7 @@ namespace kucoin_rebalancer
             decimal min = BaseMinSize[pair];
             if (d < min)
             {
-                Console.WriteLine($"Quantity {d} too small for {pair}--using BaseMinSize of {min}");
+                Console.WriteLine($"Quantity {d} to small for {pair}--using BaseMinSize of {min}");
                 return min;
             }
             else return decimal.Round(d, count);
@@ -138,20 +138,19 @@ namespace kucoin_rebalancer
 
         public async Task Start()
         {
-            if (!Paper)
+
+            HashSet<string> pairs = new HashSet<string>();
+            foreach (PairInfo p in Pairs) pairs.Add(p.Pair);
+            var sa = await kc.Spot.GetSymbolsAsync(); //"USDS"
+            foreach (var pair in sa.Data)
             {
-                HashSet<string> pairs = new HashSet<string>();
-                foreach (PairInfo p in Pairs) pairs.Add(p.Pair);
-                var sa = await kc.Spot.GetSymbolsAsync(); //"USDS"
-                foreach (var pair in sa.Data)
+                if (pairs.Contains(pair.Name))
                 {
-                    if (pairs.Contains(pair.Name))
-                    {
-                        BaseMinSize.Add(pair.Name, pair.BaseMinSize);
-                        BaseIncrement.Add(pair.Name, pair.BaseIncrement);
-                    }
+                    BaseMinSize.Add(pair.Name, pair.BaseMinSize);
+                    BaseIncrement.Add(pair.Name, pair.BaseIncrement);
                 }
             }
+            
 
             foreach (PairInfo Pair in Pairs)
             {
