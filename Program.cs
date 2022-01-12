@@ -9,14 +9,13 @@ namespace kucoin_rebalancer
         static async Task MainAsync()
         {
             List<PairInfo> pairs = new List<PairInfo>() {
-                new PairInfo("LINK3S-USDT", .25m),
-                new PairInfo("ELON-USDT", .25m),
-                new PairInfo("NEAR3L-USDT", .25m),
-                new PairInfo("SAND3L-USDT", .25m),
+                new PairInfo("LOVE-USDT", .25m),
+                new PairInfo("PLGR-USDT", .25m),
+                new PairInfo("SRK-USDT", .25m),
+                new PairInfo("FTM3S-USDT", .25m),
                 };
 
-            //$5 initial investment, 0.2% threshold for rebalancing 
-            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5000, Threshold: 0.002m, Paper: true);
+            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20000, Threshold: 0.001m, Paper: true);
             await r.Start();
 
             //Console.ReadKey blocks main thread
@@ -62,32 +61,26 @@ namespace kucoin_rebalancer
 
         public async Task Buy(PairInfo p, decimal Quantity)
         {
-            var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Buy, type: KucoinNewOrderType.Market, quantity: Quantity, clientOrderId: Guid.NewGuid().ToString());
-            if (!res.Success) Console.WriteLine($"Buy error: {res.Error}");
+            decimal q = Round(Quantity, p.Pair);
+            if (!Paper)
+            {
+                var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Buy, type: KucoinNewOrderType.Market, quantity: Quantity, clientOrderId: Guid.NewGuid().ToString());
+                if (!res.Success) Console.WriteLine($"Buy error: {res.Error}");
+            }
+            p.Quantity += q;
+            Console.WriteLine($"Bought {q} of {p.Pair} (${decimal.Round(q * p.Ask, 4)})");
         }
 
         public async Task Sell(PairInfo p, decimal Quantity)
         {
-            var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Sell, type: KucoinNewOrderType.Market, quantity: Quantity, clientOrderId: Guid.NewGuid().ToString());
-            if (!res.Success) Console.WriteLine($"Sell error: {res.Error}");
-        }
-
-        public async Task BuyPercent(PairInfo Pair, decimal Percent)
-        {
-            //initial amount based on this.Amount otherwise it should use a percent of current holdings for the pair
-            decimal amt = (Pair.Quantity == 0) ? (Pair.Percentage * Amount) / Pair.Ask : Pair.Quantity;
-            decimal q = Round(Percent * amt, Pair.Pair);
-            if (!Paper) await Buy(Pair, q);
-            Pair.Quantity += q;
-            Console.WriteLine($"Bought {q} of {Pair.Pair} (${decimal.Round(q * Pair.Ask, 4)})"); 
-        }
-
-        public async Task SellPercent(PairInfo Pair, decimal Percent)
-        {
-            decimal q = Round(Percent * Pair.Quantity, Pair.Pair);
-            if (!Paper) await Sell(Pair, q);
-            Pair.Quantity -= q;
-            Console.WriteLine($"Sold {q} of {Pair.Pair} (${decimal.Round(q * Pair.Ask, 4)})");
+            decimal q = Round(Quantity, p.Pair);
+            if (!Paper)
+            {
+                var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Sell, type: KucoinNewOrderType.Market, quantity: q, clientOrderId: Guid.NewGuid().ToString());
+                if (!res.Success) Console.WriteLine($"Sell error: {res.Error}");
+            }
+            p.Quantity -= q;
+            Console.WriteLine($"Sold {q} of {p.Pair} (${decimal.Round(q * p.Ask, 4)})");
         }
 
         public decimal Round(decimal d, string pair)
@@ -105,7 +98,7 @@ namespace kucoin_rebalancer
         public async Task Stop()
         {
             Console.WriteLine();
-            foreach (PairInfo p in Pairs) await SellPercent(p, 1);
+            foreach (PairInfo p in Pairs) await Sell(p, p.Quantity);
         }
 
         public async Task Start()
@@ -115,8 +108,9 @@ namespace kucoin_rebalancer
             {
                 var res = await sc.Spot.SubscribeToTickerUpdatesAsync(Pair.Pair, async data =>
                 {
-                    Pair.Ask = (decimal)data.Data.BestAsk;
-                    if (Pair.Quantity == 0) await BuyPercent(Pair, 1);
+                    Pair.Ask = (decimal)data.Data.BestAsk * (1 + MinThreshold); //fees make it a bit higher?
+                    UpdateActualPercentage(Pair);
+                    if (Pair.Quantity == 0) await Buy(Pair, (Pair.Percentage * Amount) / Pair.Ask);
                     else
                     {
                         //ensure we are holding all pairs first--maybe a better way to check this
@@ -132,51 +126,36 @@ namespace kucoin_rebalancer
             }
         }
 
+        void UpdateActualPercentage(PairInfo pi)
+        {
+            decimal SumUSDT = 0;
+            foreach (PairInfo p in Pairs) SumUSDT += p.Ask * p.Quantity;
+            pi.ActualPercentage = (pi.Ask * pi.Quantity) / SumUSDT;
+        }
+
         async Task Rebalance()
         {
-            //if + or - is pressed increase or decrease position size by 2%
-            if (KeyPress == ConsoleKey.OemPlus) { KeyPress = 0; foreach(PairInfo pi in Pairs) await BuyPercent(pi, .02m); }
-            else if (KeyPress == ConsoleKey.OemMinus) { KeyPress = 0; foreach (PairInfo pi in Pairs) await SellPercent(pi, .02m); }
+            //if + or - is pressed increase or decrease position size by 10%
+            if (KeyPress == ConsoleKey.OemPlus) { KeyPress = 0; foreach (PairInfo pi in Pairs) await Buy(pi, pi.Quantity * 0.1m); }
+            else if (KeyPress == ConsoleKey.OemMinus) { KeyPress = 0; foreach (PairInfo pi in Pairs) await Sell(pi, pi.Quantity * 0.1m); }
 
-            //we need to calculate new percentages and check if any are above Threshold
-            //if so, we need to sell that pair and buy other pair(s)
-            decimal SumUSDT = 0;
-            foreach (PairInfo pi in Pairs) SumUSDT += pi.Ask * pi.Quantity;
             foreach (PairInfo pi in Pairs)
             {
-                pi.ActualPercentage = (pi.Ask * pi.Quantity) / SumUSDT;
                 if (pi.ActualPercentage >= pi.Percentage + Threshold)
                 {
                     Console.WriteLine($"\n{pi.Pair} crossed {100 * Threshold}% threshold!");
+                    await Sell(pi, pi.Quantity - pi.Quantity * (pi.Percentage / pi.ActualPercentage));
+                    UpdateActualPercentage(pi);
 
-                    //convert amount over threshold as quantity to sell
-                    decimal SellPercentage = pi.ActualPercentage - pi.Percentage, SmallBuyPecentage = 0;
-                    await SellPercent(pi, SellPercentage);
-
-                    //buy the other pair(s) 
+                    //buy/sell the other pair(s) 
                     foreach (PairInfo pi2 in Pairs.OrderByDescending(i => i.ActualPercentage))
                     {
                         if (pi2.Pair == pi.Pair) continue;
-                        decimal BuyPercentage = pi2.Percentage - pi2.ActualPercentage;
-
-                        //this would be without the additional logic
-                        //if (BuyPercentage > MinThreshold) await BuyPercent(pi2, BuyPercentage);
-
-                        if (BuyPercentage > 0) //only buy those pairs that dropped below Pecentage
-                        {
-                            if ((BuyPercentage + SmallBuyPecentage) <= MinThreshold)
-                            {
-                                Console.WriteLine($"Buy percentage too small: {100*(decimal.Round(BuyPercentage + SmallBuyPecentage,4))}% < {100*MinThreshold}% -- adding to following pair");
-                                SmallBuyPecentage += BuyPercentage;
-                                continue;
-                            }
-                            else
-                            {
-                                await BuyPercent(pi2, BuyPercentage + SmallBuyPecentage);
-                                SmallBuyPecentage = 0; //reset this
-                            }
-                        }
-
+                        decimal q = pi2.Quantity - pi2.Quantity * (pi2.Percentage / pi2.ActualPercentage);
+                        //Console.WriteLine($"Quantity: {q}, Percentage: {pi2.ActualPercentage}%");
+                        if (q > BaseMinSize[pi2.Pair]) await Sell(pi2, q);
+                        else if (-q > BaseMinSize[pi2.Pair]) await Buy(pi2, -q);
+                        UpdateActualPercentage(pi2);
                     }
                 }
             }
@@ -196,6 +175,5 @@ namespace kucoin_rebalancer
                 }
             }
         }
-      
     }
 }
