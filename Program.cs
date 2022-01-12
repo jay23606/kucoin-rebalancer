@@ -10,13 +10,13 @@ namespace kucoin_rebalancer
         {
             List<PairInfo> pairs = new List<PairInfo>() {
                 new PairInfo("LINK3S-USDT", .25m),
-                //new PairInfo("ELON-USDT", .25m),
-                new PairInfo("NEAR3L-USDT", .375m),
-                new PairInfo("SAND3L-USDT", .375m),
+                new PairInfo("ELON-USDT", .25m),
+                new PairInfo("NEAR3L-USDT", .25m),
+                new PairInfo("SAND3L-USDT", .25m),
                 };
 
             //$5 initial investment, 0.2% threshold for rebalancing 
-            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 2000, Threshold: 0.002m, Paper: true);
+            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5000, Threshold: 0.002m, Paper: true);
             await r.Start();
 
             //Console.ReadKey blocks main thread
@@ -79,7 +79,7 @@ namespace kucoin_rebalancer
             decimal q = Round(Percent * amt, Pair.Pair);
             if (!Paper) await Buy(Pair, q);
             Pair.Quantity += q;
-            Console.WriteLine($"Bought {q} of {Pair.Pair} ({decimal.Round(100 * Pair.ActualPercentage, 4)}%, ${decimal.Round(q * Pair.Ask, 4)})");
+            Console.WriteLine($"Bought {q} of {Pair.Pair} (${decimal.Round(q * Pair.Ask, 4)})"); 
         }
 
         public async Task SellPercent(PairInfo Pair, decimal Percent)
@@ -87,7 +87,7 @@ namespace kucoin_rebalancer
             decimal q = Round(Percent * Pair.Quantity, Pair.Pair);
             if (!Paper) await Sell(Pair, q);
             Pair.Quantity -= q;
-            Console.WriteLine($"Sold {q} of {Pair.Pair} ({100 * Pair.ActualPercentage}%, ${q * Pair.Ask})");
+            Console.WriteLine($"Sold {q} of {Pair.Pair} (${decimal.Round(q * Pair.Ask, 4)})");
         }
 
         public decimal Round(decimal d, string pair)
@@ -96,7 +96,7 @@ namespace kucoin_rebalancer
             decimal min = BaseMinSize[pair];
             if (d < min)
             {
-                Console.WriteLine($"Quantity {d} to small for {pair}--using BaseMinSize of {min}");
+                Console.WriteLine($"Quantity {d} too small for {pair}--using BaseMinSize of {min}");
                 return min;
             }
             else return decimal.Round(d, count);
