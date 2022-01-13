@@ -23,14 +23,12 @@ Uses market orders and it may have bugs - I do not guarantee it in any way
 
 ```csharp
 List<PairInfo> pairs = new List<PairInfo>() {
-    new PairInfo("BTC3L-USDT", .25m),
-    new PairInfo("ETH3L-USDT", .25m),
-    new PairInfo("FTM3S-USDT", .25m),
-    new PairInfo("LINK3S-USDT", .25m),
-    };
+                new PairInfo("ELON-USDT", .5m),
+                new PairInfo("SHIB-USDT", .5m),
+                };
 
-//$5 initial investment, 0.2% threshold for rebalancing 
-Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.002m); 
+//$20 initial investment, 1% threshold for rebalancing 
+Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20, Threshold: 0.01m); 
 await r.Start();
 ```
 
