@@ -1,6 +1,7 @@
 //Compiled with visual studio 2022 community
 //Make sure to add Kucoin.Net from Project->Manage NuGet->Browse
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Kucoin.Net;
