@@ -25,8 +25,7 @@ namespace kucoin_rebalancer
             await r.Start();
 
             //Console.ReadKey blocks main thread
-            //var timer = new System.Timers.Timer { Interval = 1000 * 60 * 5 };
-            var timer = new System.Timers.Timer { Interval = 1000 * 10 };
+            var timer = new System.Timers.Timer { Interval = 1000 * 60 * 5 };
             timer.Elapsed += (sender, e) => PrintAvgPerformance(null, e, r);
             timer.Start();
 
