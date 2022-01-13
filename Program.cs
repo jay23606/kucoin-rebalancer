@@ -2,6 +2,7 @@
 //Make sure to add Kucoin.Net from Project->Manage NuGet->Browse
 using System;
 using System.Linq;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Kucoin.Net;
@@ -85,8 +86,10 @@ namespace kucoin_rebalancer
                 foreach(string sd in sds.Reverse())
                 {
                     string[] s = sd.Trim().Split("@");
-                    Scales.Push(Convert.ToDecimal(s[0].Trim()));
-                    Deviations.Push(Convert.ToDecimal(s[1].Trim()));
+                    if (decimal.TryParse(s[0].Trim(), NumberStyles.Currency, CultureInfo.CreateSpecificCulture("en-US"), out var scale))
+                         Scales.Push(scale);
+                    if (decimal.TryParse(s[1].Trim(), NumberStyles.Currency, CultureInfo.CreateSpecificCulture("en-US"), out var deviation))
+                        Scales.Push(deviation);
                 }
             }
 
