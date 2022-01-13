@@ -21,6 +21,8 @@ The number of streaming client calls is reset after each threshold cross or manu
 
 Uses market orders
 
+It may have bugs and I do not guarantee it in any way
+
 ```csharp
 List<PairInfo> pairs = new List<PairInfo>() {
     new PairInfo("BTC3L-USDT", .25m),
