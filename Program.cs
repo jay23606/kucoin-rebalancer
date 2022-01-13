@@ -89,7 +89,7 @@ namespace kucoin_rebalancer
                     if (decimal.TryParse(s[0].Trim(), NumberStyles.Currency, CultureInfo.CreateSpecificCulture("en-US"), out var scale))
                          Scales.Push(scale);
                     if (decimal.TryParse(s[1].Trim(), NumberStyles.Currency, CultureInfo.CreateSpecificCulture("en-US"), out var deviation))
-                        Scales.Push(deviation);
+                        Deviations.Push(deviation);
                 }
             }
 
