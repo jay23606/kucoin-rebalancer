@@ -10,12 +10,11 @@ namespace kucoin_rebalancer
         static async Task Main()
         {
             List<PairInfo> pairs = new List<PairInfo>() {
-                new PairInfo("ELON-USDT", .5m),
+                new PairInfo("LOVE-USDT", .5m),
                 new PairInfo("SHIB-USDT", .5m),
-                //new PairInfo("DOGE3S-USDT", 1m/3m),
                 };
 
-            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20, Threshold: 0.01m, Paper: false);
+            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20, Threshold: .01m, Paper: true, DCA: ".05@-.5, .1@-1, .15@-5");
 
             await r.Start();
 
@@ -29,8 +28,18 @@ namespace kucoin_rebalancer
     class PairInfo
     {
         public string Pair;
-        public decimal Percentage, ActualPercentage, Quantity = 0, Ask = 0;
+        public decimal Percentage, ActualPercentage, Quantity = 0, Ask = 0, InitialAsk = 0;
         public int calls = 0, left = 0, top = 0;
+
+        //how is the pair performing since we first purchased?
+        public decimal Performance
+        {
+            get
+            {
+                if (InitialAsk == 0) return 0;
+                return 100 * ((Ask / InitialAsk) - 1) - .2m;
+            }
+        }
         public PairInfo(string Pair, decimal Percentage)
         {
             this.Pair = Pair;
@@ -49,9 +58,22 @@ namespace kucoin_rebalancer
         KucoinSocketClient sc;
         KucoinClient kc;
         Dictionary<string, decimal> BaseMinSize = new Dictionary<string, decimal>(), BaseIncrement = new Dictionary<string, decimal>();
-
-        public Rebalancer(List<PairInfo> Pairs, decimal Amount, decimal Threshold, bool Paper = true)
+        Stack<decimal> Scales = new Stack<decimal>();
+        Stack<decimal> Deviations = new Stack<decimal>();
+        
+        public Rebalancer(List<PairInfo> Pairs, decimal Amount, decimal Threshold, bool Paper = true, string DCA = "")
         {
+            if (DCA != "")
+            {
+                string[] sds = DCA.Split(",");
+                foreach(string sd in sds.Reverse())
+                {
+                    string[] s = sd.Trim().Split("@");
+                    Scales.Push(Convert.ToDecimal(s[0].Trim()));
+                    Deviations.Push(Convert.ToDecimal(s[1].Trim()));
+                }
+            }
+
             for (int i = 0; i < Pairs.Count; i++) Pairs[i].top = i;
             this.Paper = Paper;
             this.Pairs = Pairs;
@@ -61,6 +83,8 @@ namespace kucoin_rebalancer
             kc = new KucoinClient(new KucoinClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass) });
         }
 
+        public decimal AvgPerformace { get { return Pairs.Average(x => x.Performance); } }
+
         public async Task Buy(PairInfo p, decimal Quantity)
         {
             decimal q = Round(Quantity, p.Pair);
@@ -69,8 +93,9 @@ namespace kucoin_rebalancer
                 var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Buy, type: KucoinNewOrderType.Market, quantity: q, clientOrderId: Guid.NewGuid().ToString());
                 if (!res.Success) Console.WriteLine($"Buy error: {res.Error}");
             }
+            if (p.InitialAsk == 0) p.InitialAsk = p.Ask;
             p.Quantity += q;
-            Console.WriteLine($"Bought {q} of {p.Pair} (${decimal.Round(q * p.Ask, 4)}), holding ${decimal.Round(p.Quantity * p.Ask, 4)}");
+            Console.WriteLine($"Bought {q} of {p.Pair} (${decimal.Round(q * p.Ask, 4)}), holding ${decimal.Round(.998m * p.Quantity * p.Ask, 4)}");
         }
 
         public async Task Sell(PairInfo p, decimal Quantity)
@@ -82,7 +107,7 @@ namespace kucoin_rebalancer
                 if (!res.Success) Console.WriteLine($"Sell error: {res.Error}");
             }
             p.Quantity -= q;
-            Console.WriteLine($"Sold {q} of {p.Pair} (${decimal.Round(q * p.Ask, 4)}), holding ${decimal.Round(p.Quantity * p.Ask, 4)}");
+            Console.WriteLine($"Sold {q} of {p.Pair} (${decimal.Round(q * p.Ask, 4)}), holding ${decimal.Round(.998m * p.Quantity * p.Ask, 4)}");
         }
 
         public decimal Round(decimal d, string pair)
@@ -147,6 +172,16 @@ namespace kucoin_rebalancer
             if (KeyPress == ConsoleKey.OemPlus) { KeyPress = 0; Console.WriteLine();  foreach (PairInfo pi in Pairs) Buy(pi, pi.Quantity * 0.1m).GetAwaiter().GetResult(); }
             else if (KeyPress == ConsoleKey.OemMinus) { KeyPress = 0; Console.WriteLine(); foreach (PairInfo pi in Pairs) Sell(pi, pi.Quantity * 0.1m).GetAwaiter().GetResult(); }
 
+            if (Deviations.Count > 0)
+            {
+                if (AvgPerformace < Deviations.Peek())
+                {
+                    Console.WriteLine($"\nAvgPerformance {decimal.Round(AvgPerformace, 2)}% < {decimal.Round(Deviations.Peek(), 2)}% - executing {decimal.Round(100 * Scales.Peek(), 2)}% DCA");
+                    foreach (PairInfo pi in Pairs) Buy(pi, pi.Quantity * Scales.Peek()).GetAwaiter().GetResult();
+                    Deviations.Pop();
+                    Scales.Pop();
+                }
+            }
             
             foreach (PairInfo pi in Pairs)
             {
@@ -155,7 +190,7 @@ namespace kucoin_rebalancer
                 int left = 0, top = 0;
                 (left, top) = Console.GetCursorPosition();
                 Console.SetCursorPosition(pi.left, top + pi.top);
-                Console.Write(decimal.Round(100 * pi.ActualPercentage, 2) + $"% {pi.Pair} ${decimal.Round(pi.Ask*pi.Quantity,2)}-{pi.calls} updates");
+                Console.Write(decimal.Round(100 * pi.ActualPercentage, 2) + $"% {pi.Pair} ${decimal.Round(.998m * pi.Ask * pi.Quantity, 2)} {decimal.Round(pi.Performance,2)}% ({pi.calls})");
                 Console.SetCursorPosition(left, top);
 
                 if (pi.ActualPercentage >= pi.Percentage + Threshold)
