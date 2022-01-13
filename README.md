@@ -28,7 +28,7 @@ Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 5, Threshold: 0.002m);
 await r.Start();
 ```
 
-![Screenshot](ss.png)
+![Screenshot](screenshot.png)
 
 More info about coin rebalancing:
 
