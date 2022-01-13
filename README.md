@@ -19,9 +19,7 @@ The values on the right represent the percentage allocations for each pair and t
 
 The number of streaming client calls is reset after each threshold cross or manual buy/sell
 
-Uses market orders
-
-It may have bugs and I do not guarantee it in any way
+Uses market orders and it may have bugs - I do not guarantee it in any way
 
 ```csharp
 List<PairInfo> pairs = new List<PairInfo>() {
