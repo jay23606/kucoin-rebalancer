@@ -10,14 +10,14 @@ namespace kucoin_rebalancer
         static async Task Main()
         {
             List<PairInfo> pairs = new List<PairInfo>() {
-                new PairInfo("LOVE-USDT", 1m/3m),
-                new PairInfo("ELON-USDT", 1m/3m),
-                new PairInfo("DOGE3S-USDT", 1m/3m),
+                new PairInfo("SHIB-USDT", .5m),
+                new PairInfo("ELON-USDT", .5m),
+                //new PairInfo("DOGE3S-USDT", 1m/3m),
                 };
 
             for (int i = 0; i < pairs.Count; i++) pairs[i].top = i;
 
-             Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 100, Threshold: 0.002m, Paper: true);
+             Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20, Threshold: 0.01m, Paper: false);
             await r.Start();
 
             //Console.ReadKey blocks main thread
@@ -102,7 +102,7 @@ namespace kucoin_rebalancer
         public async Task Stop()
         {
             Console.WriteLine();
-            foreach (PairInfo p in Pairs) await Sell(p, p.Quantity);
+            foreach (PairInfo p in Pairs) Sell(p, p.Quantity).GetAwaiter().GetResult();
         }
 
         public async Task Start()
@@ -113,7 +113,7 @@ namespace kucoin_rebalancer
                 var res = await sc.Spot.SubscribeToTickerUpdatesAsync(Pair.Pair, async data =>
                 {
                     Pair.Ask = (decimal)data.Data.BestAsk;
-                    if (Pair.Quantity == 0) await Buy(Pair, (Pair.Percentage * Amount) / Pair.Ask);
+                    if (Pair.Quantity == 0) Buy(Pair, (Pair.Percentage * Amount) / Pair.Ask).GetAwaiter().GetResult();
                     else
                     {
                         //ensure we are holding all pairs first--maybe a better way to check this
@@ -125,7 +125,7 @@ namespace kucoin_rebalancer
                         else
                         {
                             Pair.calls++;
-                            await Rebalance(Pair);
+                            Rebalance(Pair).GetAwaiter().GetResult();
                         }
                     }
                 });
@@ -143,8 +143,8 @@ namespace kucoin_rebalancer
         async Task Rebalance(PairInfo Pair)
         {
             //if + or - is pressed increase or decrease position size by 10%
-            if (KeyPress == ConsoleKey.OemPlus) { KeyPress = 0; Console.WriteLine();  foreach (PairInfo pi in Pairs) await Buy(pi, pi.Quantity * 0.1m); }
-            else if (KeyPress == ConsoleKey.OemMinus) { KeyPress = 0; Console.WriteLine(); foreach (PairInfo pi in Pairs) await Sell(pi, pi.Quantity * 0.1m); }
+            if (KeyPress == ConsoleKey.OemPlus) { KeyPress = 0; Console.WriteLine();  foreach (PairInfo pi in Pairs) Buy(pi, pi.Quantity * 0.1m).GetAwaiter().GetResult(); }
+            else if (KeyPress == ConsoleKey.OemMinus) { KeyPress = 0; Console.WriteLine(); foreach (PairInfo pi in Pairs) Sell(pi, pi.Quantity * 0.1m).GetAwaiter().GetResult(); }
 
             
             foreach (PairInfo pi in Pairs)
@@ -161,7 +161,7 @@ namespace kucoin_rebalancer
                 {
                     
                     Console.WriteLine($"\n{pi.Pair} crossed {100 * Threshold}% threshold!");
-                    await Sell(pi, pi.Quantity - pi.Quantity * (pi.Percentage / pi.ActualPercentage));
+                    Sell(pi, pi.Quantity - pi.Quantity * (pi.Percentage / pi.ActualPercentage)).GetAwaiter().GetResult();
 
                     //buy/sell the other pair(s) 
                     foreach (PairInfo pi2 in Pairs.OrderByDescending(i => i.ActualPercentage))
@@ -171,8 +171,8 @@ namespace kucoin_rebalancer
                         if (pi2.Pair == pi.Pair) continue;
                         decimal q = pi2.Quantity - pi2.Quantity * (pi2.Percentage / pi2.ActualPercentage);
                         //Console.WriteLine($"Quantity: {q}, Percentage: {pi2.ActualPercentage}%");
-                        if (q > BaseMinSize[pi2.Pair]) await Sell(pi2, q);
-                        else if (-q > BaseMinSize[pi2.Pair]) await Buy(pi2, -q);
+                        if (q > BaseMinSize[pi2.Pair]) Sell(pi2, q).GetAwaiter().GetResult();
+                        else if (-q > BaseMinSize[pi2.Pair]) Buy(pi2, -q).GetAwaiter().GetResult();
                         else
                         {
                             //may want to find a way to distribute the difference here?
