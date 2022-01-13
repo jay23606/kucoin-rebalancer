@@ -17,6 +17,10 @@ Press Esc to exit and sell to usdt, press plus key to add 10% to rebalancer and 
 
 The values on the right represent the percentage allocations for each pair and the number of streaming client calls
 
+The number of streaming client calls is reset after each threshold cross or manual buy/sell
+
+Uses market orders
+
 ```csharp
 List<PairInfo> pairs = new List<PairInfo>() {
     new PairInfo("BTC3L-USDT", .25m),
