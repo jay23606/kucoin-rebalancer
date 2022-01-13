@@ -15,6 +15,8 @@ Define pairs, percentage amounts, usdt amount and threshold for rebalance:
 
 Press Esc to exit and sell to usdt, press plus key to add 10% to rebalancer and minus key to remove 10%
 
+The values on the right represent the percentage allocations for each pair and the number of streaming client calls
+
 ```csharp
 List<PairInfo> pairs = new List<PairInfo>() {
     new PairInfo("BTC3L-USDT", .25m),
