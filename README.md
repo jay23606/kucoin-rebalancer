@@ -13,7 +13,7 @@ Set Paper=false in Rebalancer constructor to try it with real money
 
 Define pairs, percentage amounts, usdt amount and threshold for rebalance:
 
-Press Esc to exit and sell to usdt
+Press Esc to exit and sell to usdt, press plus key to add 10% to rebalancer and minus key to remove 10%
 
 ```csharp
 List<PairInfo> pairs = new List<PairInfo>() {
