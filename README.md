@@ -15,7 +15,7 @@ Pass Paper=false in Rebalancer constructor to try it with real money
 
 Press Esc to exit and sell to usdt, press plus key to add 10% to rebalancer and minus key to remove 10%
 
-Added DCA option that allows for adding funds to all pairs when the ask price deviates from the initial ask price by set percentages
+Added DCA option that allows for adding funds to all pairs when the average ask price deviates from the initial average ask price by set percentages
 
 The values on the right represent the percentage allocations for each pair and the number of streaming client calls (I've also added dollar amount)
 
