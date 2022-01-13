@@ -1,3 +1,5 @@
+//Compiled with visual studio 2022 community
+//Make sure to add Kucoin.Net from Project->Manage NuGet->Browse
 using Kucoin.Net;
 using Kucoin.Net.Objects;
 
@@ -5,21 +7,21 @@ namespace kucoin_rebalancer
 {
     class Program
     {
-        static void Main() { MainAsync().GetAwaiter().GetResult(); }
-        static async Task MainAsync()
+        static async Task Main()
         {
             List<PairInfo> pairs = new List<PairInfo>() {
-                new PairInfo("LOVE-USDT", .5m),
-                new PairInfo("TIDAL-USDT", .5m),
+                new PairInfo("LOVE-USDT", 1m/3m),
+                new PairInfo("ELON-USDT", 1m/3m),
+                new PairInfo("DOGE3S-USDT", 1m/3m),
                 };
 
-            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 10, Threshold: 0.03m, Paper: false);
+            for (int i = 0; i < pairs.Count; i++) pairs[i].top = i;
+
+             Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 100, Threshold: 0.002m, Paper: true);
             await r.Start();
 
             //Console.ReadKey blocks main thread
-            await Task.Factory.StartNew(() => {
-                while ((r.KeyPress = Console.ReadKey().Key) != ConsoleKey.Escape) ;
-            });
+            await Task.Factory.StartNew(() => { while ((r.KeyPress = Console.ReadKey().Key) != ConsoleKey.Escape) ; });
 
             await r.Stop();
         }
@@ -29,10 +31,12 @@ namespace kucoin_rebalancer
     {
         public string Pair;
         public decimal Percentage, ActualPercentage, Quantity = 0, Ask = 0;
+        public int calls = 0, left = 0, top = 0;
         public PairInfo(string Pair, decimal Percentage)
         {
             this.Pair = Pair;
             this.Percentage = this.ActualPercentage = Percentage;
+            this.left = 80;
         }
     }
 
@@ -60,9 +64,8 @@ namespace kucoin_rebalancer
         public async Task Buy(PairInfo p, decimal Quantity)
         {
             decimal q = Round(Quantity, p.Pair);
-            if (!Paper)
+            if (!Paper && q > 0)
             {
-                //q = BaseMinSize[p.Pair];
                 var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Buy, type: KucoinNewOrderType.Market, quantity: q, clientOrderId: Guid.NewGuid().ToString());
                 if (!res.Success) Console.WriteLine($"Buy error: {res.Error}");
             }
@@ -73,9 +76,8 @@ namespace kucoin_rebalancer
         public async Task Sell(PairInfo p, decimal Quantity)
         {
             decimal q = Round(Quantity, p.Pair);
-            if (!Paper)
+            if (!Paper && q > 0)
             {
-                //q = BaseMinSize[p.Pair];
                 var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Sell, type: KucoinNewOrderType.Market, quantity: q, clientOrderId: Guid.NewGuid().ToString());
                 if (!res.Success) Console.WriteLine($"Sell error: {res.Error}");
             }
@@ -89,8 +91,10 @@ namespace kucoin_rebalancer
             decimal min = BaseMinSize[pair];
             if (d < min)
             {
-                Console.WriteLine($"Quantity {d} too small for {pair}--using BaseMinSize of {min}");
-                return min;
+                Console.WriteLine($"Quantity {d} too small for {pair}--minimum is {min}");
+                //return min;
+                //rather than return the min I am going to play it safe and return zero
+                return 0;
             }
             else return decimal.Round(d, count);
         }
@@ -108,8 +112,8 @@ namespace kucoin_rebalancer
             {
                 var res = await sc.Spot.SubscribeToTickerUpdatesAsync(Pair.Pair, async data =>
                 {
-                    Pair.Ask = (decimal)data.Data.BestAsk;// * (1 + MinThreshold); //fees make it a bit higher?
-                    if (Pair.Quantity == 0) Buy(Pair, (Pair.Percentage * Amount) / Pair.Ask).GetAwaiter().GetResult();
+                    Pair.Ask = (decimal)data.Data.BestAsk;
+                    if (Pair.Quantity == 0) await Buy(Pair, (Pair.Percentage * Amount) / Pair.Ask);
                     else
                     {
                         //ensure we are holding all pairs first--maybe a better way to check this
@@ -120,7 +124,8 @@ namespace kucoin_rebalancer
                         }
                         else
                         {
-                            Rebalance().GetAwaiter().GetResult();
+                            Pair.calls++;
+                            await Rebalance(Pair);
                         }
                     }
                 });
@@ -135,37 +140,45 @@ namespace kucoin_rebalancer
             pi.ActualPercentage = (pi.Ask * pi.Quantity) / SumUSDT;
         }
 
-        async Task Rebalance()
+        async Task Rebalance(PairInfo Pair)
         {
             //if + or - is pressed increase or decrease position size by 10%
-            if (KeyPress == ConsoleKey.OemPlus) { KeyPress = 0; foreach (PairInfo pi in Pairs) await Buy(pi, pi.Quantity * 0.1m); }
-            else if (KeyPress == ConsoleKey.OemMinus) { KeyPress = 0; foreach (PairInfo pi in Pairs) await Sell(pi, pi.Quantity * 0.1m); }
+            if (KeyPress == ConsoleKey.OemPlus) { KeyPress = 0; Console.WriteLine();  foreach (PairInfo pi in Pairs) await Buy(pi, pi.Quantity * 0.1m); }
+            else if (KeyPress == ConsoleKey.OemMinus) { KeyPress = 0; Console.WriteLine(); foreach (PairInfo pi in Pairs) await Sell(pi, pi.Quantity * 0.1m); }
 
-            int l = 0, t = 0;
+            
             foreach (PairInfo pi in Pairs)
             {
                 UpdateActualPercentage(pi);
 
-                
-                if (pi == Pairs.First()) (l, t) = Console.GetCursorPosition();
-                Console.Write(Decimal.Round(100 * pi.ActualPercentage, 6) + $"% {pi.Pair} ");
-                if (pi == Pairs.Last()) Console.SetCursorPosition(l, t);
+                int left = 0, top = 0;
+                (left, top) = Console.GetCursorPosition();
+                Console.SetCursorPosition(pi.left, top + pi.top);
+                Console.Write(Decimal.Round(100 * pi.ActualPercentage, 6) + $"% {pi.Pair}-{pi.calls}");
+                Console.SetCursorPosition(left, top);
 
                 if (pi.ActualPercentage >= pi.Percentage + Threshold)
                 {
+                    
                     Console.WriteLine($"\n{pi.Pair} crossed {100 * Threshold}% threshold!");
-                    Sell(pi, pi.Quantity - pi.Quantity * (pi.Percentage / pi.ActualPercentage)).GetAwaiter().GetResult();
-                    //UpdateActualPercentage(pi);
+                    await Sell(pi, pi.Quantity - pi.Quantity * (pi.Percentage / pi.ActualPercentage));
 
                     //buy/sell the other pair(s) 
                     foreach (PairInfo pi2 in Pairs.OrderByDescending(i => i.ActualPercentage))
                     {
+                        pi2.calls = 0;
+
                         if (pi2.Pair == pi.Pair) continue;
                         decimal q = pi2.Quantity - pi2.Quantity * (pi2.Percentage / pi2.ActualPercentage);
                         //Console.WriteLine($"Quantity: {q}, Percentage: {pi2.ActualPercentage}%");
-                        if (q > BaseMinSize[pi2.Pair]) Sell(pi2, q).GetAwaiter().GetResult();
-                        else if (-q > BaseMinSize[pi2.Pair]) Buy(pi2, -q).GetAwaiter().GetResult();
-                        //UpdateActualPercentage(pi2);
+                        if (q > BaseMinSize[pi2.Pair]) await Sell(pi2, q);
+                        else if (-q > BaseMinSize[pi2.Pair]) await Buy(pi2, -q);
+                        else
+                        {
+                            //may want to find a way to distribute the difference here?
+                            if (q > 0) Console.WriteLine($"${decimal.Round(q * pi2.Ask, 4)} for {pi2.Pair} is too small to sell");
+                            else Console.WriteLine($"${decimal.Round(-q * pi2.Ask,4)} for {pi2.Pair} is too small to buy");
+                        }
                     }
                 }
             }
@@ -175,7 +188,7 @@ namespace kucoin_rebalancer
         {
             HashSet<string> pairs = new HashSet<string>();
             foreach (PairInfo p in Pairs) pairs.Add(p.Pair);
-            var sa = await kc.Spot.GetSymbolsAsync(); //"USDS"
+            var sa = await kc.Spot.GetSymbolsAsync(); //"USDS" some 3L/3S are not in USDS market
             foreach (var pair in sa.Data)
             {
                 if (pairs.Contains(pair.Name))
