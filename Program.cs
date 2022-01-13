@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Kucoin.Net;
 using Kucoin.Net.Objects;
+using System.Runtime.InteropServices;
 
 namespace kucoin_rebalancer
 {
@@ -23,9 +24,19 @@ namespace kucoin_rebalancer
             await r.Start();
 
             //Console.ReadKey blocks main thread
+            var timer = new System.Timers.Timer { Interval = 1000 * 60 * 5 };
+            timer.Elapsed += (sender, e) => PrintAvgPerformance(null, e, r);
+            timer.Start();
+
             await Task.Run(() => { while ((r.KeyPress = Console.ReadKey().Key) != ConsoleKey.Escape) ; });
 
             await r.Stop();
+        }
+        static void PrintAvgPerformance(object sender, System.Timers.ElapsedEventArgs e, Rebalancer r)
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) Console.WriteLine();
+            else foreach (PairInfo p in r.Pairs) Console.WriteLine();
+            Console.WriteLine($"Average Performance: {decimal.Round(r.AvgPerformace,4)}%");
         }
     }
 
@@ -194,7 +205,7 @@ namespace kucoin_rebalancer
                 int left = 0, top = 0;
                 (left, top) = Console.GetCursorPosition();
                 Console.SetCursorPosition(pi.left, top + pi.top);
-                Console.Write(decimal.Round(100 * pi.ActualPercentage, 2) + $"% {pi.Pair} ${decimal.Round(.998m * pi.Ask * pi.Quantity, 2)} {decimal.Round(pi.Performance,2)}% ({pi.calls})");
+                Console.Write(decimal.Round(100 * pi.ActualPercentage, 2) + $"% {pi.Pair} ${decimal.Round(.998m * pi.Ask * pi.Quantity, 2)} {decimal.Round(pi.Performance, 2)}% ({pi.calls})");
                 Console.SetCursorPosition(left, top);
 
                 if (pi.ActualPercentage >= pi.Percentage + Threshold)
