@@ -9,13 +9,13 @@ Include Kucoin.NET from Project->Nuget
 
 Update Kucoin API key, secret, pass in Rebalancer class
 
-Set Paper=false in Rebalancer constructor to try it with real money
-
 Define pairs, percentage amounts, usdt amount and threshold for rebalance:
+
+Pass Paper=false in Rebalancer constructor to try it with real money
 
 Press Esc to exit and sell to usdt, press plus key to add 10% to rebalancer and minus key to remove 10%
 
-The values on the right represent the percentage allocations for each pair and the number of streaming client calls
+The values on the right represent the percentage allocations for each pair and the number of streaming client calls (I've also added dollar amount)
 
 The number of streaming client calls is reset after each threshold cross or manual buy/sell
 
