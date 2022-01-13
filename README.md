@@ -25,12 +25,12 @@ Uses market orders and it may have bugs - I do not guarantee it in any way
 
 ```csharp
 List<PairInfo> pairs = new List<PairInfo>() {
-                new PairInfo("ELON-USDT", .5m),
+                new PairInfo("LOVE-USDT", .5m),
                 new PairInfo("SHIB-USDT", .5m),
                 };
 
-//$20 initial investment, 1% threshold for rebalancing 
-Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20, Threshold: 0.01m); 
+Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20, Threshold: .01m, Paper: true, DCA: ".05@-.5; .1@-1; .15@-5");
+
 await r.Start();
 ```
 
