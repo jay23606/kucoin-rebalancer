@@ -15,9 +15,8 @@ namespace kucoin_rebalancer
                 //new PairInfo("DOGE3S-USDT", 1m/3m),
                 };
 
-            for (int i = 0; i < pairs.Count; i++) pairs[i].top = i;
+            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20, Threshold: 0.01m, Paper: false);
 
-             Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20, Threshold: 0.01m, Paper: false);
             await r.Start();
 
             //Console.ReadKey blocks main thread
@@ -53,6 +52,7 @@ namespace kucoin_rebalancer
 
         public Rebalancer(List<PairInfo> Pairs, decimal Amount, decimal Threshold, bool Paper = true)
         {
+            for (int i = 0; i < Pairs.Count; i++) Pairs[i].top = i;
             this.Paper = Paper;
             this.Pairs = Pairs;
             this.Amount = Amount;
@@ -102,6 +102,7 @@ namespace kucoin_rebalancer
         public async Task Stop()
         {
             Console.WriteLine();
+            sc.Spot.UnsubscribeAllAsync().GetAwaiter().GetResult();
             foreach (PairInfo p in Pairs) Sell(p, p.Quantity).GetAwaiter().GetResult();
         }
 
@@ -168,7 +169,7 @@ namespace kucoin_rebalancer
                     {
                         pi2.calls = 0;
 
-                        if (pi2.Pair == pi.Pair) continue;
+                        if (pi2.Pair == pi.Pair || pi2.ActualPercentage == 0) continue;
                         decimal q = pi2.Quantity - pi2.Quantity * (pi2.Percentage / pi2.ActualPercentage);
                         //Console.WriteLine($"Quantity: {q}, Percentage: {pi2.ActualPercentage}%");
                         if (q > BaseMinSize[pi2.Pair]) Sell(pi2, q).GetAwaiter().GetResult();
