@@ -64,7 +64,7 @@ namespace kucoin_rebalancer
             decimal q = Round(Quantity, p.Pair);
             if (!Paper)
             {
-                var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Buy, type: KucoinNewOrderType.Market, quantity: Quantity, clientOrderId: Guid.NewGuid().ToString());
+                var res = await kc.Spot.PlaceOrderAsync(symbol: p.Pair, side: KucoinOrderSide.Buy, type: KucoinNewOrderType.Market, quantity: q, clientOrderId: Guid.NewGuid().ToString());
                 if (!res.Success) Console.WriteLine($"Buy error: {res.Error}");
             }
             p.Quantity += q;
