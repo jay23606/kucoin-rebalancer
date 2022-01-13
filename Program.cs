@@ -19,12 +19,13 @@ namespace kucoin_rebalancer
                 new PairInfo("SHIB-USDT", .5m),
                 };
 
-            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20, Threshold: .01m, Paper: true, DCA: ".05@-.5, .1@-1, .15@-5");
+            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20, Threshold: .01m, Paper: false, DCA: ".05@-.5; .1@-1; .15@-5");
 
             await r.Start();
 
             //Console.ReadKey blocks main thread
-            var timer = new System.Timers.Timer { Interval = 1000 * 60 * 5 };
+            //var timer = new System.Timers.Timer { Interval = 1000 * 60 * 5 };
+            var timer = new System.Timers.Timer { Interval = 1000 * 10 };
             timer.Elapsed += (sender, e) => PrintAvgPerformance(null, e, r);
             timer.Start();
 
@@ -80,7 +81,7 @@ namespace kucoin_rebalancer
         {
             if (DCA != "")
             {
-                string[] sds = DCA.Split(",");
+                string[] sds = DCA.Split(";");
                 foreach(string sd in sds.Reverse())
                 {
                     string[] s = sd.Trim().Split("@");
@@ -98,7 +99,13 @@ namespace kucoin_rebalancer
             kc = new KucoinClient(new KucoinClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass) });
         }
 
-        public decimal AvgPerformace { get { return Pairs.Average(x => x.Performance); } }
+        public decimal AvgPerformace
+        {
+            get
+            {
+                return Pairs.Sum(x => x.ActualPercentage * x.Performance) / Pairs.Sum(x => x.ActualPercentage);
+            }
+        }
 
         public async Task Buy(PairInfo p, decimal Quantity)
         {
