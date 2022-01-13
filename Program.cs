@@ -10,8 +10,8 @@ namespace kucoin_rebalancer
         static async Task Main()
         {
             List<PairInfo> pairs = new List<PairInfo>() {
-                new PairInfo("SHIB-USDT", .5m),
                 new PairInfo("ELON-USDT", .5m),
+                new PairInfo("SHIB-USDT", .5m),
                 //new PairInfo("DOGE3S-USDT", 1m/3m),
                 };
 
@@ -154,7 +154,7 @@ namespace kucoin_rebalancer
                 int left = 0, top = 0;
                 (left, top) = Console.GetCursorPosition();
                 Console.SetCursorPosition(pi.left, top + pi.top);
-                Console.Write(Decimal.Round(100 * pi.ActualPercentage, 6) + $"% {pi.Pair}-{pi.calls}");
+                Console.Write(decimal.Round(100 * pi.ActualPercentage, 2) + $"% {pi.Pair} ${decimal.Round(pi.Ask*pi.Quantity,2)}-{pi.calls} updates");
                 Console.SetCursorPosition(left, top);
 
                 if (pi.ActualPercentage >= pi.Percentage + Threshold)
