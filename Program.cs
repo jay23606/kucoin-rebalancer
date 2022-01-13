@@ -23,7 +23,7 @@ namespace kucoin_rebalancer
             await r.Start();
 
             //Console.ReadKey blocks main thread
-            await Task.Factory.StartNew(() => { while ((r.KeyPress = Console.ReadKey().Key) != ConsoleKey.Escape) ; });
+            await Task.Run(() => { while ((r.KeyPress = Console.ReadKey().Key) != ConsoleKey.Escape) ; });
 
             await r.Stop();
         }
