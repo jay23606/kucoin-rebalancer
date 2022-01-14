@@ -20,16 +20,23 @@ namespace kucoin_rebalancer
                 new PairInfo("SHIB-USDT", .5m),
                 };
 
-            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20, Threshold: .01m, Paper: false, DCA: ".05@-.5; .1@-1; .15@-5");
+            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20, Threshold: .01m, Paper: true, DCA: ".05@-.5; .1@-1; .15@-5");
 
             await r.Start();
 
             //Console.ReadKey blocks main thread
             var timer = new System.Timers.Timer { Interval = 1000 * 60 * 5 };
+            //var timer = new System.Timers.Timer { Interval = 1000 * 10 };
             timer.Elapsed += (sender, e) => PrintAvgPerformance(null, e, r);
             timer.Start();
 
-            await Task.Run(() => { while ((r.KeyPress = Console.ReadKey().Key) != ConsoleKey.Escape) ; });
+            await Task.Run(() => 
+            {
+                do
+                {
+                    if (Console.KeyAvailable) r.KeyPress = Console.ReadKey().Key;
+                } while (r.KeyPress != ConsoleKey.Escape);
+            });
 
             await r.Stop();
         }
@@ -217,9 +224,12 @@ namespace kucoin_rebalancer
                 Console.Write(decimal.Round(100 * pi.ActualPercentage, 2) + $"% {pi.Pair} ${decimal.Round(.998m * pi.Ask * pi.Quantity, 2)} {decimal.Round(pi.Performance, 2)}% ({pi.calls})");
                 Console.SetCursorPosition(left, top);
 
-                if (pi.ActualPercentage >= pi.Percentage + Threshold)
+
+                //if (pi.ActualPercentage >= pi.Percentage + Threshold)
+                // we need to do the percentage of the part not of the whole..
+                if ((pi.ActualPercentage - pi.Percentage) / pi.Percentage >= Threshold)
                 {
-                    
+
                     Console.WriteLine($"\n{pi.Pair} crossed {100 * Threshold}% threshold!");
                     Sell(pi, pi.Quantity - pi.Quantity * (pi.Percentage / pi.ActualPercentage)).GetAwaiter().GetResult();
 
@@ -237,7 +247,7 @@ namespace kucoin_rebalancer
                         {
                             //may want to find a way to distribute the difference here?
                             if (q > 0) Console.WriteLine($"${decimal.Round(q * pi2.Ask, 4)} for {pi2.Pair} is too small to sell");
-                            else Console.WriteLine($"${decimal.Round(-q * pi2.Ask,4)} for {pi2.Pair} is too small to buy");
+                            else Console.WriteLine($"${decimal.Round(-q * pi2.Ask, 4)} for {pi2.Pair} is too small to buy");
                         }
                     }
                 }
