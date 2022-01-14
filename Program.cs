@@ -15,12 +15,17 @@ namespace kucoin_rebalancer
     {
         static async Task Main()
         {
+            //right click top of console window and select default and uncheck quickedit mode
+            //ConsoleWindow.QuickEditMode(false);
+
             List<PairInfo> pairs = new List<PairInfo>() {
-                new PairInfo("LOVE-USDT", .5m),
-                new PairInfo("SHIB-USDT", .5m),
+                new PairInfo("H3RO3S-USDT", .25m),
+                new PairInfo("DOGE3L-USDT", .25m),
+                new PairInfo("DOGE3S-USDT", .25m),
+                new PairInfo("WSIENNA-USDT", .25m),
                 };
 
-            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 20, Threshold: .01m, Paper: true, DCA: ".05@-.5; .1@-1; .15@-5");
+            Rebalancer r = new Rebalancer(Pairs: pairs, Amount: 200, Threshold: .02m, Paper: true, DCA: ".1@-4; .1@-8; .1@-16; .1@-32");
 
             await r.Start();
 
@@ -44,7 +49,19 @@ namespace kucoin_rebalancer
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) Console.WriteLine();
             else foreach (PairInfo p in r.Pairs) Console.WriteLine();
-            Console.WriteLine($"Average Performance: {decimal.Round(r.AvgPerformace,4)}%");
+            Console.Write($"Average Performance: ");
+            WritePercent(r.AvgPerformace);
+            Console.WriteLine("%");
+        }
+
+        public static void WritePercent(decimal d, bool color = true)
+        {
+            ConsoleColor c = Console.ForegroundColor;
+            if (color)
+                if (d < 0) Console.ForegroundColor = ConsoleColor.Red;
+                else if (d > 0) Console.ForegroundColor = ConsoleColor.Green;
+            Console.Write(decimal.Round(d, 3).ToString("0.000", CultureInfo.InvariantCulture));
+            Console.ForegroundColor = c;
         }
     }
 
@@ -67,7 +84,7 @@ namespace kucoin_rebalancer
         {
             this.Pair = Pair;
             this.Percentage = this.ActualPercentage = Percentage;
-            this.left = 80;
+            this.left = 75;
         }
     }
 
@@ -86,19 +103,7 @@ namespace kucoin_rebalancer
         
         public Rebalancer(List<PairInfo> Pairs, decimal Amount, decimal Threshold, bool Paper = true, string DCA = "")
         {
-            if (DCA != "")
-            {
-                string[] sds = DCA.Split(";");
-                foreach(string sd in sds.Reverse())
-                {
-                    string[] s = sd.Trim().Split("@");
-                    if (decimal.TryParse(s[0].Trim(), NumberStyles.Currency, CultureInfo.CreateSpecificCulture("en-US"), out var scale))
-                         Scales.Push(scale);
-                    if (decimal.TryParse(s[1].Trim(), NumberStyles.Currency, CultureInfo.CreateSpecificCulture("en-US"), out var deviation))
-                        Deviations.Push(deviation);
-                }
-            }
-
+            FillDCAStacks(DCA);
             for (int i = 0; i < Pairs.Count; i++) Pairs[i].top = i;
             this.Paper = Paper;
             this.Pairs = Pairs;
@@ -106,6 +111,25 @@ namespace kucoin_rebalancer
             this.Threshold = Threshold;
             sc = new KucoinSocketClient(new KucoinSocketClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass), AutoReconnect = true, });
             kc = new KucoinClient(new KucoinClientOptions() { ApiCredentials = new KucoinApiCredentials(key, secret, pass) });
+            UpdateBaseDictionaries().GetAwaiter().GetResult();
+        }
+
+        void FillDCAStacks(string DCA)
+        {
+            Scales.Clear();
+            Deviations.Clear();
+            if (DCA != "")
+            {
+                string[] sds = DCA.Split(";");
+                foreach (string sd in sds.Reverse())
+                {
+                    string[] s = sd.Trim().Split("@");
+                    if (decimal.TryParse(s[0].Trim(), NumberStyles.Currency, CultureInfo.CreateSpecificCulture("en-US"), out var scale))
+                        Scales.Push(scale);
+                    if (decimal.TryParse(s[1].Trim(), NumberStyles.Currency, CultureInfo.CreateSpecificCulture("en-US"), out var deviation))
+                        Deviations.Push(deviation);
+                }
+            }
         }
 
         public decimal AvgPerformace
@@ -164,7 +188,6 @@ namespace kucoin_rebalancer
 
         public async Task Start()
         {
-            await UpdateBaseDictionaries();
             foreach (PairInfo Pair in Pairs)
             {
                 var res = await sc.Spot.SubscribeToTickerUpdatesAsync(Pair.Pair, async data =>
@@ -221,7 +244,9 @@ namespace kucoin_rebalancer
                 int left = 0, top = 0;
                 (left, top) = Console.GetCursorPosition();
                 Console.SetCursorPosition(pi.left, top + pi.top);
-                Console.Write(decimal.Round(100 * pi.ActualPercentage, 2) + $"% {pi.Pair} ${decimal.Round(.998m * pi.Ask * pi.Quantity, 2)} {decimal.Round(pi.Performance, 2)}% ({pi.calls})");
+                Console.Write(decimal.Round(100 * pi.ActualPercentage, 2) + $"% {pi.Pair} ${decimal.Round(.998m * pi.Ask * pi.Quantity, 2)} ");
+                Program.WritePercent(pi.Performance);
+                Console.Write($"% ({pi.calls})");
                 Console.SetCursorPosition(left, top);
 
 
