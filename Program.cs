@@ -56,12 +56,11 @@ namespace kucoin_rebalancer
 
         public static void WritePercent(decimal d, bool color = true)
         {
-            ConsoleColor c = Console.ForegroundColor;
             if (color)
                 if (d < 0) Console.ForegroundColor = ConsoleColor.Red;
                 else if (d > 0) Console.ForegroundColor = ConsoleColor.Green;
             Console.Write(decimal.Round(d, 3).ToString("0.000", CultureInfo.InvariantCulture));
-            Console.ForegroundColor = c;
+            Console.ResetColor();
         }
     }
 
